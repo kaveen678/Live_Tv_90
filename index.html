@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stream Pro | Kaveen Chamodya</title>
+    
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    <link href="https://unpkg.com/@videojs/themes@1.0.1/city/index.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #00f2fe;
+            --secondary-color: #4facfe;
+            --bg-dark: #080a0f;
+            --card-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--bg-dark);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+        .spinner {
+            width: 60px; height: 60px;
+            border: 5px solid rgba(0, 242, 254, 0.1);
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s infinite;
+            box-shadow: 0 0 20px var(--primary-color);
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .main-wrapper {
+            width: 95%;
+            max-width: 1100px;
+            display: none; 
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .player-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(25px);
+            padding: 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .video-js {
+            width: 100%;
+            height: 480px;
+            border-radius: 12px;
+        }
+
+        .channel-container {
+            max-height: 450px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        h3 {
+            font-size: 14px;
+            color: var(--primary-color);
+            margin: 25px 0 12px 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 10px;
+        }
+
+        .channel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .channel-card {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 15px;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 11px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 50px;
+        }
+
+        .channel-card:hover {
+            background: rgba(0, 242, 254, 0.15);
+            border-color: var(--primary-color);
+            transform: translateY(-3px);
+        }
+
+        .channel-card.active {
+            background: linear-gradient(45deg, var(--secondary-color), var(--primary-color));
+            color: #000;
+            font-weight: 700;
+            box-shadow: 0 0 15px var(--primary-color);
+        }
+
+        .footer-note {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+            padding-bottom: 20px;
+        }
+        .dev-name span { color: var(--primary-color); font-weight: 600; }
+
+        @media (max-width: 768px) { .video-js { height: 260px; } }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loading-text" style="margin-top: 20px; color: var(--primary-color);">Initializing Web Player...</div>
+    </div>
+
+    <div class="main-wrapper" id="player-ui">
+        <div class="player-section">
+            <video id="my-video" class="video-js vjs-theme-city vjs-big-play-centered" controls preload="auto"></video>
+        </div>
+
+        <div id="dynamic-content" class="channel-container">
+            </div>
+
+        <footer class="footer-note">
+            <p>&copy; 2025 All Rights Reserved</p>
+            <p class="dev-name">Powered By <span>Kaveen Chamodya</span></p>
+        </footer>
+    </div>
+
+    <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
+    <script>
+        var player = videojs('my-video', { fluid: true });
+        
+        // GitHub CORS Fix එක සඳහා "AllOrigins" Proxy භාවිතා කර ඇත
+        const m3uUrl = "https://raw.githubusercontent.com/abusaeeidx/Mrgify-Tv/refs/heads/main/playlist.m3u";
+        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(m3uUrl);
+
+        async function fetchPlaylist() {
+            try {
+                // සෑම විටම අලුත්ම ලින්ක් ලබා ගැනීමට Timestamp එකක් භාවිතා කරයි
+                const response = await fetch(proxyUrl + '&t=' + Date.now());
+                if (!response.ok) throw new Error('Network error');
+                const data = await response.text();
+                parseM3U(data);
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                document.querySelector('.loading-text').innerText = "Sync Failed. Retrying...";
+                setTimeout(fetchPlaylist, 3000); // අසාර්ථක වුවහොත් තත්පර 3 කින් නැවත උත්සාහ කරයි
+            }
+        }
+
+        function parseM3U(data) {
+            const lines = data.split('\n');
+            let categories = {};
+            let isFirst = true;
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('#EXTINF')) {
+                    const groupMatch = lines[i].match(/group-title="([^"]+)"/);
+                    const category = groupMatch ? groupMatch[1] : "General";
+
+                    // "Live Event" කාණ්ඩය ඉවත් කිරීම
+                    if (category.toLowerCase() === "live event") continue;
+
+                    const name = lines[i].split(',')[1]?.trim() || "Live TV";
+                    const url = lines[i + 1]?.trim();
+
+                    if (url && url.startsWith('http')) {
+                        if (!categories[category]) categories[category] = [];
+                        categories[category].push({ name, url });
+                    }
+                }
+            }
+
+            const container = document.getElementById('dynamic-content');
+            container.innerHTML = ""; // පරණ දත්ත තිබේ නම් ඉවත් කරයි
+
+            for (let cat in categories) {
+                // Category Heading
+                const h3 = document.createElement('h3');
+                h3.innerText = cat;
+                container.appendChild(h3);
+
+                // Channel Grid
+                const grid = document.createElement('div');
+                grid.className = 'channel-grid';
+
+                categories[cat].forEach(ch => {
+                    const card = document.createElement('div');
+                    card.className = 'channel-card';
+                    card.innerText = ch.name;
+                    card.onclick = function() {
+                        document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('active'));
+                        this.classList.add('active');
+                        player.src({ src: ch.url, type: 'application/x-mpegURL' });
+                        player.play();
+                    };
+
+                    // මුල්ම චැනලය ස්වයංක්‍රීයව පූරණය කිරීම
+                    if (isFirst) {
+                        card.classList.add('active');
+                        player.src({ src: ch.url, type: 'application/x-mpegURL' });
+                        isFirst = false;
+                    }
+                    grid.appendChild(card);
+                });
+                container.appendChild(grid);
+            }
+
+            // Loader එක ඉවත් කිරීම
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('player-ui').style.display = 'flex';
+        }
+
+        window.onload = fetchPlaylist;
+    </script>
+</body>
+</html>
